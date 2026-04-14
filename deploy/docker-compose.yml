@@ -11,6 +11,10 @@ version: "3.9"
 #   └── data/         ← HERMES_HOME bind-mount (sessions, memories, config…)
 #                        created automatically on first start
 #
+# First-time setup (after clone):
+#   cp .env.shared.example .env.shared   # copy template
+#   $EDITOR .env.shared                  # fill in LLM API keys
+#
 # Credential loading order (later wins):
 #   1. .env.shared         — shared LLM API keys and terminal defaults
 #   2. tenants/<name>/.env — tenant-specific bot tokens and overrides
