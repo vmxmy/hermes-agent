@@ -1,0 +1,4 @@
+# Runtime data for each tenant — keep the data/ directory but ignore its contents.
+# Sessions, memories, logs, and config are written here by the running container.
+tenants/*/data/*
+!tenants/*/data/.gitkeep
