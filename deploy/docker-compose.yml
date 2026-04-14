@@ -3,16 +3,22 @@ version: "3.9"
 # ─────────────────────────────────────────────────────────────────────────────
 # Hermes Agent — Multi-Tenant Docker Compose
 #
-# Each service = one tenant = one bot token = one isolated HERMES_HOME volume.
+# Each service = one tenant = one bot token = one isolated HERMES_HOME.
+#
+# Directory layout per tenant:
+#   tenants/<name>/
+#   ├── .env          ← bot tokens and platform credentials
+#   └── data/         ← HERMES_HOME bind-mount (sessions, memories, config…)
+#                        created automatically on first start
 #
 # Credential loading order (later wins):
-#   1. .env.shared        — shared infrastructure keys (LLM API keys, defaults)
+#   1. .env.shared         — shared LLM API keys and terminal defaults
 #   2. tenants/<name>/.env — tenant-specific bot tokens and overrides
 #
 # Add a new tenant:
-#   ./add-tenant.sh <name>        # scaffold files
-#   # edit tenants/<name>/.env    # fill in bot tokens
-#   # add service block below     # copy the alice block and rename
+#   ./add-tenant.sh <name>        # scaffold .env + data/ + print compose block
+#   $EDITOR tenants/<name>/.env   # fill in bot tokens
+#   # paste printed block into docker-compose.yml
 #   docker compose up -d <name>
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -31,7 +37,7 @@ services:
     <<: *hermes-defaults
     container_name: hermes-alice
     volumes:
-      - alice_data:/opt/data
+      - ./tenants/alice/data:/opt/data   # HERMES_HOME → tenants/alice/data/
     env_file:
       - .env.shared
       - tenants/alice/.env
@@ -41,7 +47,7 @@ services:
     <<: *hermes-defaults
     container_name: hermes-bob
     volumes:
-      - bob_data:/opt/data
+      - ./tenants/bob/data:/opt/data     # HERMES_HOME → tenants/bob/data/
     env_file:
       - .env.shared
       - tenants/bob/.env
@@ -51,13 +57,7 @@ services:
   #   <<: *hermes-defaults
   #   container_name: hermes-charlie
   #   volumes:
-  #     - charlie_data:/opt/data
+  #     - ./tenants/charlie/data:/opt/data
   #   env_file:
   #     - .env.shared
   #     - tenants/charlie/.env
-
-# One named volume per tenant — each maps to an isolated /opt/data (HERMES_HOME)
-volumes:
-  alice_data:
-  bob_data:
-  # charlie_data:
