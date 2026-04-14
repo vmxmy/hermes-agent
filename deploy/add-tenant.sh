@@ -5,66 +5,104 @@
 # Usage: ./add-tenant.sh <tenant-name>
 #
 # Creates:
-#   tenants/<name>/.env        (copy of .env.template)
+#   tenants/<name>/compose.yml   (service fragment, auto-discovered by hermesctl)
+#   tenants/<name>/.env          (copy of tenants/.env.template)
+#   tenants/<name>/data/         (HERMES_HOME bind-mount target)
 #
-# Then manually:
+# Then:
 #   1. Edit tenants/<name>/.env to add bot tokens
-#   2. Add the service block to docker-compose.yml (printed below)
-#   3. docker compose up -d <name>
+#   2. ./hermesctl up -d <name>
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── Argument validation ───────────────────────────────────────────────────────
 NAME="${1:-}"
 if [[ -z "$NAME" ]]; then
     echo "Usage: $0 <tenant-name>" >&2
     exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Names become container names and directory names — keep them safe
+if ! [[ "$NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "Error: tenant name must match [a-z0-9][a-z0-9-]+ (lowercase, digits, hyphens only)" >&2
+    exit 1
+fi
 
-# Ensure .env.shared exists
+# Reserved names (directories with special meaning under tenants/)
+for reserved in archive scripts; do
+    if [[ "$NAME" == "$reserved" ]]; then
+        echo "Error: '$NAME' is a reserved name" >&2
+        exit 1
+    fi
+done
+
+# ── Ensure shared env exists ──────────────────────────────────────────────────
 if [[ ! -f "$SCRIPT_DIR/.env.shared" ]]; then
     echo "Note: $SCRIPT_DIR/.env.shared not found."
     echo "      Run: cp $SCRIPT_DIR/.env.shared.example $SCRIPT_DIR/.env.shared"
     echo "      Then fill in your LLM API keys before starting containers."
     echo ""
 fi
-TENANT_DIR="$SCRIPT_DIR/tenants/$NAME"
-ENV_FILE="$TENANT_DIR/.env"
-TEMPLATE="$SCRIPT_DIR/tenants/.env.template"
 
+# ── Create tenant directory ───────────────────────────────────────────────────
+TENANT_DIR="$SCRIPT_DIR/tenants/$NAME"
 if [[ -d "$TENANT_DIR" ]]; then
     echo "Error: tenant '$NAME' already exists at $TENANT_DIR" >&2
     exit 1
 fi
 
 mkdir -p "$TENANT_DIR/data"
-cp "$TEMPLATE" "$ENV_FILE"
 
-echo "✓ Created $ENV_FILE"
-echo "✓ Created $TENANT_DIR/data/   (HERMES_HOME bind-mount target)"
+# Pre-set UID so bind-mount permissions work without root-on-first-start.
+# The entrypoint will also fix this via gosu on first startup.
+chown 10000:10000 "$TENANT_DIR/data" 2>/dev/null || true
+
+# ── Write .env from template ──────────────────────────────────────────────────
+cp "$SCRIPT_DIR/tenants/.env.template" "$TENANT_DIR/.env"
+
+# ── Write compose fragment ────────────────────────────────────────────────────
+# Paths are relative to deploy/ (the project directory anchored by the base
+# docker-compose.yml, which is always the first -f flag in hermesctl).
+cat > "$TENANT_DIR/compose.yml" << EOF
+# Tenant: ${NAME}
+# Paths are relative to deploy/ (the project directory set by the base compose file).
+# See deploy/README.md for details on path resolution.
+services:
+  ${NAME}:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: gateway run -v
+    container_name: hermes-${NAME}
+    volumes:
+      - ./tenants/${NAME}/data:/opt/data
+    env_file:
+      - path: .env.shared
+        required: false      # gitignored secret — doctor.sh validates its presence
+      - tenants/${NAME}/.env
+EOF
+
+# ── Done ──────────────────────────────────────────────────────────────────────
+echo "✓ Created tenants/${NAME}/compose.yml"
+echo "✓ Created tenants/${NAME}/.env  (from .env.template)"
+echo "✓ Created tenants/${NAME}/data/ (HERMES_HOME bind-mount target)"
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Edit the .env file and fill in your bot tokens:"
-echo "       \$EDITOR $ENV_FILE"
+echo "  1. Fill in bot tokens:"
+echo "       \$EDITOR $TENANT_DIR/.env"
 echo ""
-echo "  2. Add this block to deploy/docker-compose.yml under 'services:':"
+echo "  2. Start the tenant:"
+echo "       ./hermesctl up -d ${NAME}"
 echo ""
-echo "       $NAME:"
-echo "         <<: *hermes-defaults"
-echo "         container_name: hermes-$NAME"
-echo "         volumes:"
-echo "           - ./tenants/$NAME/data:/opt/data"
-echo "         env_file:"
-echo "           - .env.shared"
-echo "           - tenants/$NAME/.env"
+echo "  3. Tail logs:"
+echo "       ./hermesctl logs -f ${NAME}"
 echo ""
-echo "  3. Start the tenant:"
-echo "       docker compose up -d $NAME"
+echo "  4. Validate config (optional, checks for port conflicts etc.):"
+echo "       ./hermesctl doctor"
 echo ""
-echo "  4. Tail logs:"
-echo "       docker compose logs -f $NAME"
-echo ""
-echo "  Tenant data (sessions, memories, config) will be at:"
+echo "  Tenant data (sessions, memories, config) will be written to:"
 echo "       $TENANT_DIR/data/"

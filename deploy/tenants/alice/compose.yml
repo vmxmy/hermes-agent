@@ -1,0 +1,17 @@
+# Tenant: alice
+# Paths are relative to deploy/ (the project directory set by the base compose file).
+# See deploy/README.md for details on path resolution.
+services:
+  alice:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: gateway run -v
+    container_name: hermes-alice
+    volumes:
+      - ./tenants/alice/data:/opt/data
+    env_file:
+      - path: .env.shared
+        required: false      # gitignored secret — doctor.sh validates its presence
+      - tenants/alice/.env

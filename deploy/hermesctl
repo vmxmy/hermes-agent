@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# hermesctl — docker compose wrapper for multi-tenant Hermes deployments
+#
+# Wraps `docker compose` and auto-discovers tenant compose fragments under
+# tenants/*/compose.yml, passing them all as -f flags so the running tenant
+# set is always derived from the filesystem — no manual YAML editing needed.
+#
+# Built-in docker compose subcommands pass through unchanged:
+#   ./hermesctl up -d alice
+#   ./hermesctl logs -f bob
+#   ./hermesctl ps
+#   ./hermesctl exec alice hermes doctor
+#   ./hermesctl config             ← merged result (great for debugging)
+#   ./hermesctl down
+#
+# Custom subcommands:
+#   ./hermesctl ls                 ← list tenants + container status + platforms
+#   ./hermesctl doctor             ← validate config (ports, UIDs, missing keys)
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+# ── Custom subcommands ────────────────────────────────────────────────────────
+case "${1:-}" in
+    ls|list)
+        shift
+        exec ./scripts/list-tenants.sh "$@"
+        ;;
+    doctor)
+        shift
+        exec ./scripts/doctor.sh "$@"
+        ;;
+    help|-h|--help)
+        sed -n '2,/^[^#]/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \?//'
+        exit 0
+        ;;
+esac
+
+# ── Build -f file list ────────────────────────────────────────────────────────
+files=(-f docker-compose.yml)
+for dir in tenants/*/; do
+    [[ -f "$dir/compose.yml" ]] || continue
+    base="$(basename "$dir")"
+    # Skip dotfile dirs (.archive, .template, etc.)
+    [[ "$base" == .* ]] && continue
+    files+=(-f "$dir/compose.yml")
+done
+
+exec docker compose "${files[@]}" "$@"

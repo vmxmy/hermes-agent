@@ -1,67 +1,31 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Hermes Agent — Multi-Tenant Docker Compose
+# Hermes Agent — Multi-Tenant Docker Compose (Base File)
 #
-# Each service = one tenant = one bot token = one isolated HERMES_HOME.
+# Tenant services live in tenants/<name>/compose.yml and are auto-discovered
+# by ./hermesctl. DO NOT run `docker compose up` directly from this directory —
+# it will start zero services. Use ./hermesctl instead:
 #
-# Directory layout per tenant:
-#   tenants/<name>/
-#   ├── .env          ← bot tokens and platform credentials
-#   └── data/         ← HERMES_HOME bind-mount (sessions, memories, config…)
-#                        created automatically on first start
+#   ./hermesctl up -d              # start all tenants
+#   ./hermesctl up -d alice        # start one tenant
+#   ./hermesctl ps                 # show status
+#   ./hermesctl logs -f alice      # tail logs
+#   ./hermesctl ls                 # list tenants + configured platforms
+#   ./hermesctl doctor             # validate config (ports, UIDs, keys)
+#   ./hermesctl config             # preview merged compose (debug)
 #
-# First-time setup (after clone):
-#   cp .env.shared.example .env.shared   # copy template
-#   $EDITOR .env.shared                  # fill in LLM API keys
+# To add a tenant:
+#   ./add-tenant.sh <name>         # scaffolds tenants/<name>/ + compose fragment
+#   $EDITOR tenants/<name>/.env    # fill in bot tokens
+#   ./hermesctl up -d <name>
 #
-# Credential loading order (later wins):
-#   1. .env.shared         — shared LLM API keys and terminal defaults
-#   2. tenants/<name>/.env — tenant-specific bot tokens and overrides
+# To remove a tenant:
+#   ./remove-tenant.sh <name>      # stop + archive to tenants/.archive/
+#   ./remove-tenant.sh <name> --purge  # stop + permanent delete (with confirmation)
 #
-# Add a new tenant:
-#   ./add-tenant.sh <name>        # scaffold .env + data/ + print compose block
-#   $EDITOR tenants/<name>/.env   # fill in bot tokens
-#   # paste printed block into docker-compose.yml
-#   docker compose up -d <name>
+# See README.md for full documentation.
 # ─────────────────────────────────────────────────────────────────────────────
+name: hermes
 
-x-hermes: &hermes-defaults
-  build:
-    context: ..
-    dockerfile: Dockerfile
-  restart: unless-stopped
-  command: gateway start
-  # Optional: pin image instead of building locally
-  # image: ghcr.io/nousresearch/hermes-agent:latest
-
-services:
-  # ── Tenant: alice ───────────────────────────────────────────────────────────
-  alice:
-    <<: *hermes-defaults
-    container_name: hermes-alice
-    volumes:
-      - ./tenants/alice/data:/opt/data   # HERMES_HOME → tenants/alice/data/
-    env_file:
-      - .env.shared
-      - tenants/alice/.env
-
-  # ── Tenant: bob ─────────────────────────────────────────────────────────────
-  bob:
-    <<: *hermes-defaults
-    container_name: hermes-bob
-    volumes:
-      - ./tenants/bob/data:/opt/data     # HERMES_HOME → tenants/bob/data/
-    env_file:
-      - .env.shared
-      - tenants/bob/.env
-
-  # ── Add more tenants here ───────────────────────────────────────────────────
-  # charlie:
-  #   <<: *hermes-defaults
-  #   container_name: hermes-charlie
-  #   volumes:
-  #     - ./tenants/charlie/data:/opt/data
-  #   env_file:
-  #     - .env.shared
-  #     - tenants/charlie/.env
+# services must be present (even empty) for the Compose parser to accept this file.
+# All real services are defined in tenants/<name>/compose.yml fragments.
+services: {}

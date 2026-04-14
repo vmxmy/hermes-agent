@@ -2,3 +2,10 @@
 # Sessions, memories, logs, and config are written here by the running container.
 tenants/*/data/*
 !tenants/*/data/.gitkeep
+
+# Archived tenants (created by remove-tenant.sh default mode)
+tenants/.archive/
+
+# Secrets — copy from examples and fill in locally, never commit
+.env.shared
+tenants/*/.env
