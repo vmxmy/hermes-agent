@@ -1,0 +1,63 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Hermes Agent — Multi-Tenant Docker Compose
+#
+# Each service = one tenant = one bot token = one isolated HERMES_HOME volume.
+#
+# Credential loading order (later wins):
+#   1. .env.shared        — shared infrastructure keys (LLM API keys, defaults)
+#   2. tenants/<name>/.env — tenant-specific bot tokens and overrides
+#
+# Add a new tenant:
+#   ./add-tenant.sh <name>        # scaffold files
+#   # edit tenants/<name>/.env    # fill in bot tokens
+#   # add service block below     # copy the alice block and rename
+#   docker compose up -d <name>
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-hermes: &hermes-defaults
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  command: gateway start
+  # Optional: pin image instead of building locally
+  # image: ghcr.io/nousresearch/hermes-agent:latest
+
+services:
+  # ── Tenant: alice ───────────────────────────────────────────────────────────
+  alice:
+    <<: *hermes-defaults
+    container_name: hermes-alice
+    volumes:
+      - alice_data:/opt/data
+    env_file:
+      - .env.shared
+      - tenants/alice/.env
+
+  # ── Tenant: bob ─────────────────────────────────────────────────────────────
+  bob:
+    <<: *hermes-defaults
+    container_name: hermes-bob
+    volumes:
+      - bob_data:/opt/data
+    env_file:
+      - .env.shared
+      - tenants/bob/.env
+
+  # ── Add more tenants here ───────────────────────────────────────────────────
+  # charlie:
+  #   <<: *hermes-defaults
+  #   container_name: hermes-charlie
+  #   volumes:
+  #     - charlie_data:/opt/data
+  #   env_file:
+  #     - .env.shared
+  #     - tenants/charlie/.env
+
+# One named volume per tenant — each maps to an isolated /opt/data (HERMES_HOME)
+volumes:
+  alice_data:
+  bob_data:
+  # charlie_data:
