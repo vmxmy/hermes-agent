@@ -21,6 +21,14 @@ if [[ -z "$NAME" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Ensure .env.shared exists
+if [[ ! -f "$SCRIPT_DIR/.env.shared" ]]; then
+    echo "Note: $SCRIPT_DIR/.env.shared not found."
+    echo "      Run: cp $SCRIPT_DIR/.env.shared.example $SCRIPT_DIR/.env.shared"
+    echo "      Then fill in your LLM API keys before starting containers."
+    echo ""
+fi
 TENANT_DIR="$SCRIPT_DIR/tenants/$NAME"
 ENV_FILE="$TENANT_DIR/.env"
 TEMPLATE="$SCRIPT_DIR/tenants/.env.template"
