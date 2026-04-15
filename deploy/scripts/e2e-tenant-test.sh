@@ -147,6 +147,7 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage; exit 0 ;;
+        -t|--tenant)                 NAME="$2"; shift 2 ;;
         --telegram-token)            TELEGRAM_TOKEN="$2"; shift 2 ;;
         --telegram-allowed-users)    TELEGRAM_ALLOWED_USERS="$2"; shift 2 ;;
         --telegram-home-channel)     TELEGRAM_HOME_CHANNEL="$2"; shift 2 ;;

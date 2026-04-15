@@ -31,6 +31,40 @@ case "${1:-}" in
         shift
         exec ./scripts/doctor.sh "$@"
         ;;
+    approve)
+        # Pairing approval shortcut.
+        #   hermesctl approve -t <tenant> -p <platform> -c <code>
+        #   hermesctl approve --tenant <tenant> --platform <platform> --code <code>
+        # Transparently wraps:
+        #   docker exec --user hermes hermes-<tenant> hermes pairing approve <platform> <code>
+        shift
+        TENANT=""; PLATFORM=""; CODE=""
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                -t|--tenant)   TENANT="$2";   shift 2 ;;
+                -p|--platform) PLATFORM="$2"; shift 2 ;;
+                -c|--code)     CODE="$2";     shift 2 ;;
+                -h|--help)
+                    cat <<EOF
+Usage: hermesctl approve [options]
+  -t, --tenant    <name>      Tenant name (required)
+  -p, --platform  <platform>  Platform identifier (e.g. weixin, telegram)
+  -c, --code      <code>      Pairing code from the bot's message
+Example:
+  ./hermesctl approve -t poc -p weixin -c 85TC3GMF
+EOF
+                    exit 0 ;;
+                *) echo "approve: unknown argument: $1" >&2; exit 2 ;;
+            esac
+        done
+        if [[ -z "$TENANT" || -z "$PLATFORM" || -z "$CODE" ]]; then
+            echo "approve: --tenant, --platform and --code are all required" >&2
+            echo "Run 'hermesctl approve --help' for usage." >&2
+            exit 2
+        fi
+        exec docker exec --user hermes "hermes-${TENANT}" \
+            /opt/hermes/.venv/bin/hermes pairing approve "$PLATFORM" "$CODE"
+        ;;
     help|-h|--help)
         sed -n '2,/^[^#]/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \?//'
         exit 0

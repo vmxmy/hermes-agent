@@ -9,3 +9,6 @@ tenants/.archive/
 # Secrets — copy from examples and fill in locally, never commit
 .env.shared
 tenants/*/.env
+
+# OMC tool state
+.omc/

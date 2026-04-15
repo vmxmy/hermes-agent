@@ -3,8 +3,9 @@
 # remove-tenant.sh — Stop and archive (or delete) a hermes-agent tenant
 #
 # Usage:
-#   ./remove-tenant.sh <name>           # stop container + archive data
-#   ./remove-tenant.sh <name> --purge   # stop container + permanently delete
+#   ./remove-tenant.sh -t <name>           # stop container + archive data
+#   ./remove-tenant.sh -t <name> --purge   # stop container + permanently delete
+#   ./remove-tenant.sh <name> [--purge]    (positional fallback)
 #
 # Default (archive): moves tenants/<name>/ to tenants/.archive/<name>-<ts>/
 # --purge: requires typing the tenant name to confirm, then rm -rf
@@ -16,17 +17,39 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Arguments ─────────────────────────────────────────────────────────────────
-NAME="${1:-}"
-MODE="${2:-}"
+# ── Argument parsing ─────────────────────────────────────────────────────────
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [options]
+
+Options:
+  -t, --tenant NAME   Tenant name to remove (required)
+  --purge             Permanently delete all data (default: archive)
+  -h, --help          Show this help
+
+Examples:
+  $(basename "$0") --tenant poc
+  $(basename "$0") -t poc --purge
+  $(basename "$0") poc --purge
+EOF
+}
+
+NAME=""
+MODE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--tenant) NAME="$2"; shift 2 ;;
+        --purge)     MODE="--purge"; shift ;;
+        -h|--help)   usage; exit 0 ;;
+        --)          shift; break ;;
+        -*) echo "Error: unknown option '$1'" >&2; usage >&2; exit 2 ;;
+        *)  [[ -z "$NAME" ]] && { NAME="$1"; shift; } || { echo "Error: unexpected argument '$1'" >&2; exit 2; } ;;
+    esac
+done
 
 if [[ -z "$NAME" ]]; then
-    echo "Usage: $0 <tenant-name> [--purge]" >&2
-    exit 1
-fi
-
-if [[ -n "$MODE" && "$MODE" != "--purge" ]]; then
-    echo "Error: unknown option '$MODE'. Valid options: --purge" >&2
+    echo "Error: --tenant is required" >&2
+    usage >&2
     exit 1
 fi
 

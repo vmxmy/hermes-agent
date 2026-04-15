@@ -66,6 +66,7 @@ for fragment in "${tenants[@]}"; do
         grep -q '^DISCORD_BOT_TOKEN='       "$env_file" 2>/dev/null && platforms+="discord "
         grep -q '^SLACK_BOT_TOKEN='         "$env_file" 2>/dev/null && platforms+="slack "
         grep -q '^WHATSAPP_ENABLED=true'    "$env_file" 2>/dev/null && platforms+="whatsapp "
+        grep -q '^WEIXIN_ACCOUNT_ID='        "$env_file" 2>/dev/null && platforms+="weixin "
         grep -q '^SIGNAL_HTTP_URL='         "$env_file" 2>/dev/null && platforms+="signal "
         grep -q '^MATRIX_ACCESS_TOKEN='     "$env_file" 2>/dev/null && platforms+="matrix "
         grep -q '^API_SERVER_ENABLED=true'  "$env_file" 2>/dev/null && platforms+="api "
